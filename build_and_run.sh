@@ -27,6 +27,10 @@ fi
 # Create necessary directories
 mkdir -p logs settings
 
+# Make sure directories have the correct permissions
+echo "🔑 Setting correct permissions for logs and settings directories..."
+chmod -R 777 logs settings
+
 # Build Docker image
 echo "🔄 Building Docker image..."
 docker build -t insta-unfriender:latest .

@@ -23,7 +23,7 @@ RUN mkdir -p logs settings
 
 # Create settings directory for persistent session storage
 RUN mkdir -p /app/settings
-VOLUME ["/app/settings"]
+VOLUME ["/app/settings", "/app/logs"]
 
 # Run as non-root user for better security
 RUN useradd -m botuser
