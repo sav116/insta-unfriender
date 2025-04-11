@@ -27,10 +27,6 @@ fi
 # Create necessary directories
 mkdir -p logs settings
 
-# Clean up old Instagram sessions
-echo "🧹 Cleaning up old Instagram sessions..."
-rm -f settings/*.json
-
 # Build Docker image
 echo "🔄 Building Docker image..."
 docker build -t insta-unfriender:latest .

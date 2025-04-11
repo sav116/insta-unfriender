@@ -21,6 +21,10 @@ COPY . .
 # Create logs and settings directories
 RUN mkdir -p logs settings
 
+# Create settings directory for persistent session storage
+RUN mkdir -p /app/settings
+VOLUME ["/app/settings"]
+
 # Run as non-root user for better security
 RUN useradd -m botuser
 RUN chown -R botuser:botuser /app
