@@ -145,32 +145,151 @@ class InstagramService:
             return False
     
     def get_user_id_by_username(self, username):
-        """Get user ID by username"""
+        """Get user ID by username with multiple fallback methods"""
         try:
-            user_info = self.client.user_info_by_username(username)
-            return user_info.pk
+            # Method 1: Try the standard API call
+            try:
+                logger.info(f"Attempting to get user ID for {username} using standard API")
+                user_info = self.client.user_info_by_username(username)
+                return user_info.pk
+            except Exception as e:
+                logger.warning(f"Standard method failed: {e}, trying alternative methods")
+                
+            # Method 2: Try the username lookup endpoint directly
+            try:
+                logger.info(f"Trying username lookup method for {username}")
+                # Make sure we're logged in before continuing
+                self.initialize_client()
+                
+                # Manually construct the API request
+                username_info = self.client.private.request(
+                    "users/lookup/",
+                    {"username": username}
+                )
+                
+                if username_info.get("user"):
+                    user_id = username_info["user"]["pk"]
+                    logger.info(f"Found user ID {user_id} for {username} using lookup method")
+                    return user_id
+            except Exception as e:
+                logger.warning(f"Username lookup method failed: {e}")
+                
+            # Method 3: Try the search method
+            try:
+                logger.info(f"Trying search method for {username}")
+                search_results = self.client.search_users(username)
+                
+                # Find the exact username match
+                for user in search_results:
+                    if user.username.lower() == username.lower():
+                        logger.info(f"Found user ID {user.pk} for {username} using search method")
+                        return user.pk
+            except Exception as e:
+                logger.warning(f"Search method failed: {e}")
+                
+            # Method 4: Try one more direct API endpoint
+            try:
+                logger.info(f"Trying direct usernameinfo method for {username}")
+                result = self.client.private.request(
+                    f"users/{username}/usernameinfo/"
+                )
+                if result.get("user"):
+                    user_id = result["user"]["pk"]
+                    logger.info(f"Found user ID {user_id} for {username} using usernameinfo method")
+                    return user_id
+            except Exception as e:
+                logger.warning(f"Direct usernameinfo method failed: {e}")
+            
+            # All methods failed
+            logger.error(f"All methods to get user ID for {username} failed")
+            return None
+            
         except Exception as e:
             logger.error(f"Failed to get user ID by username {username}: {e}")
             return None
     
     def is_private_account(self, username):
-        """Check if an account is private"""
+        """Check if an account is private using multiple fallback methods"""
         try:
-            user_info = self.client.user_info_by_username(username)
-            return user_info.is_private
-        except Exception as e:
-            logger.error(f"Failed to check if account {username} is private: {e}")
-            return None
-    
-    def send_follow_request(self, username):
-        """Send a follow request to a private account"""
-        try:
+            # First get user ID using our improved method
             user_id = self.get_user_id_by_username(username)
             if not user_id:
+                logger.error(f"Could not find user ID for {username}")
+                return None
+                
+            # Method 1: Try standard API
+            try:
+                logger.info(f"Checking if {username} is private using standard API")
+                user_info = self.client.user_info(user_id)
+                return user_info.is_private
+            except Exception as e:
+                logger.warning(f"Standard privacy check failed: {e}")
+            
+            # Method 2: Try direct info request
+            try:
+                logger.info(f"Trying direct info request for {username}")
+                result = self.client.private.request(f"users/{user_id}/info/")
+                if result.get("user"):
+                    is_private = result["user"].get("is_private", False)
+                    logger.info(f"Account {username} is_private: {is_private} (using direct method)")
+                    return is_private
+            except Exception as e:
+                logger.warning(f"Direct info request failed: {e}")
+            
+            # If we reach here, both methods failed
+            logger.error(f"Failed to determine if {username} is private")
+            # Default to True as a safety measure (assuming private)
+            return True
+            
+        except Exception as e:
+            logger.error(f"Failed to check if account {username} is private: {e}")
+            # Default to True as a safety measure
+            return True
+    
+    def send_follow_request(self, username):
+        """Send a follow request to a private account with retry logic"""
+        try:
+            # Get user ID using our improved method
+            user_id = self.get_user_id_by_username(username)
+            if not user_id:
+                logger.error(f"Could not find user ID for {username}")
                 return False
             
-            result = self.client.user_follow(user_id)
-            return result
+            # Add a small delay to avoid rate limiting
+            time.sleep(random.randint(2, 5))
+            
+            # Method 1: Try standard follow request
+            try:
+                logger.info(f"Attempting to send follow request to {username}")
+                result = self.client.user_follow(user_id)
+                if result:
+                    logger.info(f"Successfully sent follow request to {username}")
+                    return True
+            except Exception as e:
+                logger.warning(f"Standard follow request failed: {e}")
+            
+            # Method 2: Try direct friendship request
+            try:
+                logger.info(f"Trying direct friendship request for {username}")
+                # Make sure we're logged in
+                self.initialize_client()
+                
+                # Send direct create friendship request
+                result = self.client.private.request(
+                    f"friendships/create/{user_id}/",
+                    {"user_id": user_id}
+                )
+                
+                if result.get("status") == "ok" or result.get("friendship_status", {}).get("following"):
+                    logger.info(f"Successfully sent direct follow request to {username}")
+                    return True
+            except Exception as e:
+                logger.warning(f"Direct friendship request failed: {e}")
+            
+            # If all methods fail
+            logger.error(f"All methods to send follow request to {username} failed")
+            return False
+            
         except Exception as e:
             logger.error(f"Failed to send follow request to {username}: {e}")
             return False

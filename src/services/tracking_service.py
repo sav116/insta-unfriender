@@ -14,13 +14,13 @@ class TrackingService:
         
         try:
             # Check if the account exists
+            logger.info(f"Attempting to find user ID for {instagram_username}")
             instagram_user_id = self.instagram_service.get_user_id_by_username(instagram_username)
             if not instagram_user_id:
                 close_session(session)
                 return False, "Account not found or Instagram API error"
             
-            # Check if the account is private
-            is_private = self.instagram_service.is_private_account(instagram_username)
+            logger.info(f"Successfully found user ID {instagram_user_id} for {instagram_username}")
             
             # Check if already tracking
             existing = session.query(TrackedAccount).filter_by(
@@ -31,6 +31,11 @@ class TrackingService:
             if existing:
                 close_session(session)
                 return False, "You are already tracking this account"
+            
+            # Check if the account is private
+            logger.info(f"Checking if {instagram_username} is private")
+            is_private = self.instagram_service.is_private_account(instagram_username)
+            logger.info(f"Account {instagram_username} is {'private' if is_private else 'public'}")
             
             # Create a new tracked account
             tracked_account = TrackedAccount(
@@ -47,17 +52,23 @@ class TrackingService:
             
             # If the account is public, save the initial followers
             if not is_private:
+                logger.info(f"Account {instagram_username} is public, fetching followers")
                 self.update_followers(tracked_account.id)
                 return True, "Started tracking followers successfully"
             else:
                 # For private accounts, send a follow request
+                logger.info(f"Sending follow request to private account {instagram_username}")
                 success = self.instagram_service.send_follow_request(instagram_username)
+                
                 if success:
                     tracked_account.follow_requested = True
                     session.commit()
+                    logger.info(f"Follow request sent to {instagram_username}")
                     return True, "Account is private. Follow request sent. Please accept it and confirm in the bot."
                 else:
-                    return False, "Account is private and follow request failed. Please try again."
+                    logger.error(f"Failed to send follow request to {instagram_username}")
+                    # Still track the account but warn about follow request
+                    return True, "Account is private. We couldn't send a follow request automatically. Please follow this account manually and confirm in the bot."
                 
         except Exception as e:
             logger.error(f"Error starting tracking: {e}")
