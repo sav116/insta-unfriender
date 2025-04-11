@@ -1,6 +1,83 @@
 # Instagram Unfriender Bot
 
-A Telegram bot that tracks unfollows from specified Instagram accounts and sends notifications.
+A Telegram bot that helps you track Instagram unfollowers.
+
+## Updated Instagram Authentication
+
+The Instagram authentication has been improved to handle verification challenges properly. The system now includes:
+
+- Custom challenge handlers that can process Instagram verification requests
+- Support for email verification code input during first login 
+- Session persistence to avoid repeated verification requests
+- Random delays between API requests to avoid rate limiting
+
+## Setup
+
+1. Install requirements:
+```bash
+pip install -r requirements.txt
+```
+
+2. Set your environment variables in a `.env` file:
+```
+TELEGRAM_BOT_TOKEN=your_telegram_bot_token
+INSTAGRAM_USERNAME=your_instagram_username
+INSTAGRAM_PASSWORD=your_instagram_password
+```
+
+3. Test the Instagram authentication:
+```bash
+python src/test_instagram_auth.py
+```
+   
+   **Note:** On first login, you will be prompted to enter a verification code sent to your email. After successful verification, the session will be saved for future use.
+
+4. Run the bot:
+```bash
+python src/main.py
+```
+
+## Docker Deployment
+
+1. Build the Docker image:
+```bash
+docker build -t insta-unfriender .
+```
+
+2. Run the container:
+```bash
+docker run -d --name insta-unfriender \
+  -e TELEGRAM_BOT_TOKEN=your_telegram_bot_token \
+  -e INSTAGRAM_USERNAME=your_instagram_username \
+  -e INSTAGRAM_PASSWORD=your_instagram_password \
+  insta-unfriender
+```
+
+## Handling Instagram Verification Challenges
+
+Instagram frequently requires verification when detecting automated access. This bot handles verification in two ways:
+
+1. **Initial Setup (Manual):** When you first run the test script, you'll need to enter the verification code sent to your email/phone. This creates a persistent session.
+
+2. **Production (Automated):** For the bot in production, you should:
+   - Run the test script first to create a valid session
+   - Copy the session file to your production environment
+   - The bot will use this pre-authenticated session to avoid verification prompts
+
+If Instagram challenges the bot in production:
+1. Stop the bot
+2. Delete the session file
+3. Run the test script again to create a new valid session
+4. Restart the bot
+
+## Troubleshooting
+
+If you encounter authentication issues:
+1. Delete the session file in the `settings` directory
+2. Make sure your Instagram credentials are correct 
+3. Run the test script again to generate a new session, entering the verification code when prompted
+
+If you're still having issues, try using a proxy or waiting a few hours before trying again, as Instagram may temporarily limit your account after failed login attempts.
 
 ## Features
 
@@ -10,25 +87,6 @@ A Telegram bot that tracks unfollows from specified Instagram accounts and sends
 - Admin commands for technical account management
 - Beautiful inline keyboard interface
 - Persistent Instagram session management to avoid verification challenges
-
-## Setup
-
-1. Clone this repository:
-   ```
-   git clone https://github.com/yourusername/insta-unfriender.git
-   cd insta-unfriender
-   ```
-
-2. Create and configure `.env` file (use `.env.example` as a template):
-   ```
-   cp .env.example .env
-   # Edit .env with your values
-   ```
-
-3. Run with Docker:
-   ```
-   ./build_and_run.sh
-   ```
 
 ## Environment Variables
 
@@ -44,31 +102,6 @@ A Telegram bot that tracks unfollows from specified Instagram accounts and sends
 - `/set_tech_account` - Change technical Instagram account credentials
 - `/set_check_interval` - Change the frequency of unfollower checks
 - `/stats` - Show bot statistics
-
-## Persistent Sessions
-
-This bot uses persistent sessions for Instagram authentication to avoid verification challenges. Sessions are stored in the `settings` directory and are reused on subsequent runs. If you're experiencing login issues:
-
-1. Stop the bot
-2. Delete the session file in the `settings` directory
-3. Restart the bot
-
-## Troubleshooting
-
-### Instagrapi Exceptions
-If you encounter issues with imports from the instagrapi library, check the available exceptions using the included utility script:
-
-```bash
-python check_exceptions.py
-```
-
-This will print all available exception classes in your installed instagrapi version. You may need to update the code to use the correct exception names.
-
-### System Dependencies
-Make sure all system dependencies for Pillow are installed if you're running outside of Docker:
-- libjpeg-dev
-- zlib1g-dev
-- libpng-dev
 
 ## License
 

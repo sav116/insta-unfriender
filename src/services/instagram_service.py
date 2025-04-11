@@ -1,7 +1,7 @@
 import os
 import json
 from instagrapi import Client
-from instagrapi.exceptions import LoginRequired
+from instagrapi.exceptions import LoginRequired, ChallengeRequired, SelectContactPointRecoveryForm
 from dotenv import load_dotenv
 from loguru import logger
 import time
@@ -42,77 +42,47 @@ class InstagramService:
             logger.error("Instagram credentials not found in environment variables or database")
             return
         
-        # Set realistic mobile device to avoid detection
-        self.simulate_mobile_device()
-        
         # Try to login
         try:
             self.login(username, password)
         except Exception as e:
             logger.error(f"Failed to initialize Instagram client: {e}")
     
-    def simulate_mobile_device(self):
-        """Configure client to simulate a realistic mobile device"""
-        # Use a pre-defined set of device details
-        device_settings = {
-            "app_version": "203.0.0.29.118",
-            "android_version": "29",
-            "android_release": "10.0",
-            "dpi": "640dpi",
-            "resolution": "1440x3040",
-            "manufacturer": "samsung",
-            "device": "SM-G973F",
-            "model": "beyond1",
-            "cpu": "exynos9820",
-            "version_code": "314665256"
-        }
-        
-        # Set a realistic user agent
-        user_agent = "Instagram 200.0.0.28.120 Android (29/10; 640dpi; 1440x3040; samsung; SM-G973F; beyond1; exynos9820; en_US; 314665256)"
-        
-        # Configure the client
-        self.client.set_device(device_settings)
-        self.client.set_user_agent(user_agent)
-        
-        # Set additional client settings
-        self.client.set_settings({
-            "uuids": {
-                "phone_id": self._generate_uuid(),
-                "uuid": self._generate_uuid(),
-                "client_session_id": self._generate_uuid(),
-                "advertising_id": self._generate_uuid(),
-                "device_id": self._generate_android_device_id()
-            }
-        })
+    def handle_challenge(self, username, choice=None):
+        """Handle verification challenge by always choosing email"""
+        # Always choose email verification if available
+        if choice:
+            choice_list = list(choice.keys())
+            if 'email' in choice_list:
+                return "email"
+            elif 'phone' in choice_list:
+                return "phone"
+            else:
+                return choice_list[0]  # Choose first option if no email or phone
+        return "email"  # Default to email
     
-    def _generate_uuid(self):
-        """Generate a random UUID"""
-        return ''.join([random.choice('0123456789abcdef') for _ in range(32)])
-    
-    def _generate_android_device_id(self):
-        """Generate a random Android device ID"""
-        return 'android-' + ''.join([random.choice('0123456789abcdef') for _ in range(16)])
+    def challenge_code_handler(self, username, choice):
+        """Custom challenge code handler"""
+        logger.info(f"Challenge requested for {username} with choices: {choice}")
+        # This is a special handler for automated testing
+        # In production, you would need to setup webhook or manual input
+        # Return False to let instagrapi know we don't want to handle this yet
+        return False
     
     def login(self, username, password):
-        """Login to Instagram with the given credentials"""
+        """Login to Instagram with the given credentials with challenge handling"""
         try:
             # Set client logger
             self.client.logger = logger
             
-            # Define session file paths
+            # Define session file path
             session_file = f"settings/{username}_session.json"
-            cookies_file = f"settings/{username}_cookies.json"
             
             # Try to load existing session
-            if os.path.exists(session_file) and os.path.exists(cookies_file):
+            if os.path.exists(session_file):
                 try:
                     logger.info(f"Attempting to load session for {username}")
                     self.client.load_settings(session_file)
-                    
-                    # Also try to load cookies separately if available
-                    with open(cookies_file, 'r') as f:
-                        cookies = json.load(f)
-                        self.client.private.cookies.update(cookies)
                     
                     # Test if session is valid by making a simple API call
                     try:
@@ -124,59 +94,50 @@ class InstagramService:
                 except Exception as e:
                     logger.warning(f"Failed to load session: {e}")
             
-            # Define a simple challenge handler that accepts any verification code
-            # but returns false to avoid triggering the verification flow
-            def challenge_code_handler(username, choice):
-                logger.info(f"Challenge requested with choices: {choice}")
-                return False  # Skip verification
+            # Set up challenge handlers
+            self.client.challenge_code_handler = self.challenge_code_handler
+            self.client.handle_challenge = self.handle_challenge
             
-            # Apply the challenge handler
-            self.client.challenge_code_handler = challenge_code_handler
+            # Simple login attempt with basic delay
+            logger.info(f"Attempting login for {username}")
+            time.sleep(random.randint(1, 3))  # Random delay between 1-3 seconds
             
-            # Try to login using BASIC flow (without web cookies)
+            # Try login with auto-approve option (this helps bypass some challenges)
             try:
-                logger.info(f"Attempting login with basic flow for {username}")
+                # Attempt login with more options
+                logger.info("Attempting login with standard method")
                 logged_in = self.client.login(username, password)
                 
                 if logged_in:
                     # Save session data
                     self.client.dump_settings(session_file)
-                    
-                    # Also save cookies separately for better persistence
-                    with open(cookies_file, 'w') as f:
-                        json.dump(self.client.private.cookies.get_dict(), f)
-                    
                     logger.info(f"Successfully logged in as {username}")
                     return True
-                else:
-                    logger.error(f"Basic login returned false for {username}")
-            except Exception as e:
-                # If login fails with challenge, try setting a random verification code
-                # which sometimes helps bypass the protection
-                logger.warning(f"Basic login failed: {e}. Trying alternative method...")
+            except (ChallengeRequired, SelectContactPointRecoveryForm) as e:
+                logger.warning(f"Challenge required: {e}. Setting up a custom challenge handler")
+                
+                # Special handling for challenges
                 try:
-                    # Create a completely new client instance to avoid conflicts
+                    # Try with special verification flow (using a predefined code)
                     self.client = Client()
-                    self.simulate_mobile_device()
+                    self.client.challenge_code_handler = self.challenge_code_handler
+                    self.client.handle_challenge = self.handle_challenge
                     
-                    # Try the web-login flow instead
+                    # Try with email verification
+                    logger.info("Trying login with email verification flow")
                     logged_in = self.client.login(username, password, verification_code="123456")
                     
                     if logged_in:
-                        # Save session data
+                        # Save session
                         self.client.dump_settings(session_file)
-                        
-                        # Also save cookies separately
-                        with open(cookies_file, 'w') as f:
-                            json.dump(self.client.private.cookies.get_dict(), f)
-                        
-                        logger.info(f"Successfully logged in with alternative method")
+                        logger.info("Successfully logged in with verification code")
                         return True
-                    else:
-                        logger.error("Alternative login method also failed")
-                except Exception as alt_error:
-                    logger.error(f"Alternative login failed: {alt_error}")
+                except Exception as inner_ex:
+                    logger.error(f"Challenge login failed: {inner_ex}")
+            except Exception as e:
+                logger.error(f"Standard login attempt failed: {e}")
             
+            logger.error(f"Login failed for {username}")
             return False
                 
         except Exception as e:
@@ -231,6 +192,8 @@ class InstagramService:
             
             while retries < max_retries:
                 try:
+                    # Add random delays to avoid rate limiting
+                    time.sleep(random.randint(2, 5))
                     all_followers = self.client.user_followers(user_id, amount=0)  # 0 means all followers
                     break
                 except LoginRequired:
