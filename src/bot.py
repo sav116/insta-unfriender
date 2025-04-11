@@ -27,6 +27,7 @@ from src.handlers.tracking_handlers import (
     handle_list_accounts_button,
     handle_confirm_follow,
     handle_stop_tracking,
+    handle_stop_tracking_username,
     accounts_command,
     notify_unfollowers,
     WAITING_FOR_USERNAME as TRACKING_WAITING_FOR_USERNAME
@@ -119,6 +120,7 @@ def create_application():
     application.add_handler(CallbackQueryHandler(handle_list_accounts_button, pattern="^list_accounts$"))
     application.add_handler(CallbackQueryHandler(handle_confirm_follow, pattern="^confirm_follow:"))
     application.add_handler(CallbackQueryHandler(handle_stop_tracking, pattern="^stop_tracking:"))
+    application.add_handler(CallbackQueryHandler(handle_stop_tracking_username, pattern="^stop_tracking_username:"))
     application.add_handler(CallbackQueryHandler(start_button_handler, pattern="^start$"))
     
     # Add error handler

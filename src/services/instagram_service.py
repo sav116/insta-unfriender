@@ -155,50 +155,58 @@ class InstagramService:
             except Exception as e:
                 logger.warning(f"Standard method failed: {e}, trying alternative methods")
                 
-            # Method 2: Try the username lookup endpoint directly
-            try:
-                logger.info(f"Trying username lookup method for {username}")
-                # Make sure we're logged in before continuing
-                self.initialize_client()
-                
-                # Manually construct the API request
-                username_info = self.client.private.request(
-                    "users/lookup/",
-                    {"username": username}
-                )
-                
-                if username_info.get("user"):
-                    user_id = username_info["user"]["pk"]
-                    logger.info(f"Found user ID {user_id} for {username} using lookup method")
-                    return user_id
-            except Exception as e:
-                logger.warning(f"Username lookup method failed: {e}")
-                
-            # Method 3: Try the search method
-            try:
-                logger.info(f"Trying search method for {username}")
-                search_results = self.client.search_users(username)
-                
-                # Find the exact username match
-                for user in search_results:
-                    if user.username.lower() == username.lower():
-                        logger.info(f"Found user ID {user.pk} for {username} using search method")
-                        return user.pk
-            except Exception as e:
-                logger.warning(f"Search method failed: {e}")
-                
-            # Method 4: Try one more direct API endpoint
+            # Method 2: Try direct usernameinfo endpoint
             try:
                 logger.info(f"Trying direct usernameinfo method for {username}")
+                # Ensure we're properly logged in
+                self.initialize_client()
+                
+                # Make a direct request to the username info endpoint
                 result = self.client.private.request(
-                    f"users/{username}/usernameinfo/"
+                    f"users/web_profile_info/",
+                    params={"username": username}
                 )
-                if result.get("user"):
-                    user_id = result["user"]["pk"]
-                    logger.info(f"Found user ID {user_id} for {username} using usernameinfo method")
+                
+                if result and result.get("data") and result["data"].get("user"):
+                    user_id = result["data"]["user"]["id"]
+                    logger.info(f"Found user ID {user_id} for {username} using web_profile_info method")
                     return user_id
             except Exception as e:
-                logger.warning(f"Direct usernameinfo method failed: {e}")
+                logger.warning(f"Web profile info method failed: {e}")
+                
+            # Method 3: Try the web profile endpoint (another format)
+            try:
+                logger.info(f"Trying alternative web search for {username}")
+                response = self.client.private.public_request(
+                    f"web/search/topsearch/",
+                    params={"query": username}
+                )
+                
+                # Check the search results for a match
+                if response and response.get("users"):
+                    for user in response["users"]:
+                        if user["user"]["username"].lower() == username.lower():
+                            user_id = user["user"]["pk"]
+                            logger.info(f"Found user ID {user_id} for {username} using web search")
+                            return user_id
+            except Exception as e:
+                logger.warning(f"Web search method failed: {e}")
+                
+            # Method 4: Try one more search API
+            try:
+                logger.info(f"Trying API search for {username}")
+                result = self.client.private.request("users/search/", 
+                    params={"query": username, "count": 30}
+                )
+                
+                if result and result.get("users"):
+                    for user in result["users"]:
+                        if user["username"].lower() == username.lower():
+                            user_id = user["pk"]
+                            logger.info(f"Found user ID {user_id} for {username} using API search")
+                            return user_id
+            except Exception as e:
+                logger.warning(f"API search method failed: {e}")
             
             # All methods failed
             logger.error(f"All methods to get user ID for {username} failed")
@@ -252,7 +260,19 @@ class InstagramService:
             # Get user ID using our improved method
             user_id = self.get_user_id_by_username(username)
             if not user_id:
-                logger.error(f"Could not find user ID for {username}")
+                # Try a direct approach when user_id can't be found
+                logger.info(f"Could not find user ID for {username}, trying direct username follow")
+                try:
+                    # Some private accounts require direct username follow
+                    result = self.client.user_follow_by_username(username)
+                    if result:
+                        logger.info(f"Successfully sent follow request to {username} by username")
+                        return True
+                except Exception as direct_ex:
+                    logger.warning(f"Direct username follow failed: {direct_ex}")
+                
+                # If we're here, all methods failed
+                logger.error(f"Could not find user ID for {username} and direct follow failed")
                 return False
             
             # Add a small delay to avoid rate limiting
@@ -260,7 +280,7 @@ class InstagramService:
             
             # Method 1: Try standard follow request
             try:
-                logger.info(f"Attempting to send follow request to {username}")
+                logger.info(f"Attempting to send follow request to user ID {user_id} ({username})")
                 result = self.client.user_follow(user_id)
                 if result:
                     logger.info(f"Successfully sent follow request to {username}")
@@ -268,23 +288,26 @@ class InstagramService:
             except Exception as e:
                 logger.warning(f"Standard follow request failed: {e}")
             
-            # Method 2: Try direct friendship request
+            # Method 2: Try friendship create endpoint
             try:
-                logger.info(f"Trying direct friendship request for {username}")
-                # Make sure we're logged in
-                self.initialize_client()
+                logger.info(f"Trying friendship create request for {username}")
                 
-                # Send direct create friendship request
+                # Make a direct request to create friendship
                 result = self.client.private.request(
                     f"friendships/create/{user_id}/",
-                    {"user_id": user_id}
+                    data={
+                        "user_id": user_id,
+                        "_uuid": self.client.uuid,
+                        "_uid": self.client.user_id,
+                        "_csrftoken": self.client.token
+                    }
                 )
                 
                 if result.get("status") == "ok" or result.get("friendship_status", {}).get("following"):
-                    logger.info(f"Successfully sent direct follow request to {username}")
+                    logger.info(f"Successfully sent follow request to {username} via friendship create")
                     return True
             except Exception as e:
-                logger.warning(f"Direct friendship request failed: {e}")
+                logger.warning(f"Friendship create request failed: {e}")
             
             # If all methods fail
             logger.error(f"All methods to send follow request to {username} failed")

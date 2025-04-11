@@ -58,28 +58,29 @@ async def handle_track_username(update: Update, context: ContextTypes.DEFAULT_TY
         if "private" in message.lower() and "follow request" in message.lower():
             # For private accounts with pending follow requests
             keyboard = [
-                [InlineKeyboardButton("Confirm Follow Accepted", callback_data=f"confirm_follow:{instagram_username}")]
+                [InlineKeyboardButton("✅ Подтвердить", callback_data=f"confirm_follow:{instagram_username}")],
+                [InlineKeyboardButton("❌ Отменить", callback_data=f"stop_tracking_username:{instagram_username}")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await processing_message.edit_text(
-                f"🔒 @{instagram_username} is a private account.\n\n"
-                f"1. We've sent a follow request from our technical account.\n"
-                f"2. Please accept the follow request on Instagram.\n"
-                f"3. After accepting, click the button below to confirm.",
+                f"🔒 @{instagram_username} - это приватный аккаунт.\n\n"
+                f"1. Мы отправили запрос на подписку с аккаунта @biljon10\n"
+                f"2. Пожалуйста, ПРИМИТЕ запрос на подписку в Instagram\n"
+                f"3. После принятия, нажмите кнопку '✅ Подтвердить' ниже",
                 reply_markup=reply_markup
             )
         else:
             # For public accounts
             await processing_message.edit_text(
-                f"✅ Successfully started tracking @{instagram_username}!\n\n"
-                f"You'll be notified whenever someone unfollows this account."
+                f"✅ Успешно начат трекинг @{instagram_username}!\n\n"
+                f"Вы будете получать уведомления, когда кто-то отпишется от этого аккаунта."
             )
     else:
         # Handle errors
         await processing_message.edit_text(
-            f"❌ Failed to track @{instagram_username}.\n"
-            f"Reason: {message}"
+            f"❌ Не удалось отследить @{instagram_username}.\n"
+            f"Причина: {message}"
         )
     
     return ConversationHandler.END
@@ -296,6 +297,47 @@ async def notify_unfollowers(bot, result):
         
     except Exception as e:
         logger.error(f"Error sending unfollower notification: {e}")
+
+async def handle_stop_tracking_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle stopping tracking by username"""
+    query = update.callback_query
+    await query.answer()
+    
+    # Extract the username from callback data
+    callback_data = query.data
+    instagram_username = callback_data.split(':')[1]
+    
+    chat_id = str(update.effective_chat.id)
+    user = user_service.get_or_create_user(chat_id)
+    
+    # Get account ID by username
+    session = get_session()
+    tracked_account = session.query(TrackedAccount).filter_by(
+        user_id=user.id,
+        instagram_username=instagram_username
+    ).first()
+    
+    if tracked_account:
+        account_id = tracked_account.id
+        close_session(session)
+        
+        # Stop tracking
+        success, message = tracking_service.stop_tracking(user.id, account_id)
+        
+        if success:
+            await query.edit_message_text(
+                f"✅ Отслеживание @{instagram_username} отменено."
+            )
+        else:
+            await query.edit_message_text(
+                f"❌ Не удалось отменить отслеживание.\n"
+                f"Причина: {message}"
+            )
+    else:
+        close_session(session)
+        await query.edit_message_text(
+            f"❌ Аккаунт @{instagram_username} не найден в списке отслеживаемых."
+        )
 
 from src.db.models import TrackedAccount, User
 from src.db.session import get_session, close_session 
