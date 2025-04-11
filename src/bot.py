@@ -17,7 +17,8 @@ from src.handlers.common_handlers import (
     start_command,
     help_command,
     unknown_command,
-    error_handler
+    error_handler,
+    start_button_handler
 )
 from src.handlers.tracking_handlers import (
     track_command,
@@ -118,6 +119,7 @@ def create_application():
     application.add_handler(CallbackQueryHandler(handle_list_accounts_button, pattern="^list_accounts$"))
     application.add_handler(CallbackQueryHandler(handle_confirm_follow, pattern="^confirm_follow:"))
     application.add_handler(CallbackQueryHandler(handle_stop_tracking, pattern="^stop_tracking:"))
+    application.add_handler(CallbackQueryHandler(start_button_handler, pattern="^start$"))
     
     # Add error handler
     application.add_error_handler(error_handler)

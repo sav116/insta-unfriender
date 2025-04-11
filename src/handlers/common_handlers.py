@@ -78,4 +78,23 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     
     # Log more detailed error
-    logger.error(f"Exception in update {update}: {context.error}", exc_info=context.error) 
+    logger.error(f"Exception in update {update}: {context.error}", exc_info=context.error)
+
+async def start_button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle the 'Back to Main Menu' button click"""
+    query = update.callback_query
+    await query.answer()
+    
+    # Create welcome message with inline keyboard (same as start_command)
+    keyboard = [
+        [InlineKeyboardButton("Track Account", callback_data="track_account")],
+        [InlineKeyboardButton("My Tracked Accounts", callback_data="list_accounts")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await query.edit_message_text(
+        "👋 Welcome to Instagram Unfriender Bot!\n\n"
+        "I can help you track unfollowers from Instagram accounts.\n"
+        "Use the buttons below to get started or type /help for more info.",
+        reply_markup=reply_markup
+    ) 

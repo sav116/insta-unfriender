@@ -217,11 +217,45 @@ async def handle_list_accounts_button(update: Update, context: ContextTypes.DEFA
     query = update.callback_query
     await query.answer()
     
-    # Use the existing accounts_command to show tracked accounts
-    await accounts_command(update, context)
+    # Get user ID from chat
+    chat_id = str(update.effective_chat.id)
+    user = user_service.get_or_create_user(chat_id)
     
-    # Remove the original message
-    await query.delete_message()
+    # Get tracked accounts
+    tracked_accounts = tracking_service.get_tracked_accounts(user.id)
+    
+    if not tracked_accounts or len(tracked_accounts) == 0:
+        await query.edit_message_text(
+            "📝 You're not tracking any accounts yet.\n"
+            "Use /track command to start tracking an Instagram account."
+        )
+        return
+    
+    # Build response message and keyboard
+    message = "📋 *Your Tracked Accounts:*\n\n"
+    keyboard = []
+    
+    for account in tracked_accounts:
+        status = "🔒 Private" if account.is_private else "🔓 Public"
+        pending = " (Pending follow acceptance)" if account.follow_requested else ""
+        
+        message += f"• @{account.instagram_username} - {status}{pending}\n"
+        keyboard.append([
+            InlineKeyboardButton(f"Stop tracking @{account.instagram_username}", 
+                               callback_data=f"stop_tracking:{account.id}")
+        ])
+    
+    # Add a back button
+    keyboard.append([InlineKeyboardButton("◀️ Back to Main Menu", callback_data="start")])
+    
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    # Update the existing message
+    await query.edit_message_text(
+        message,
+        reply_markup=reply_markup,
+        parse_mode="Markdown"
+    )
 
 # Handle unfollower notifications from scheduler
 async def notify_unfollowers(bot, result):
