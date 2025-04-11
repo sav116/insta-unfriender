@@ -145,67 +145,75 @@ class InstagramService:
             return False
     
     def get_user_id_by_username(self, username):
-        """Get user ID by username with simple approach"""
+        """Get user ID by username using robust approach"""
         try:
+            # Clean username (remove @ if present)
+            clean_username = username.replace("@", "").strip().lower()
+            
             # Ensure we're properly logged in
+            logger.info(f"Attempting to get user ID for {clean_username}")
             self.initialize_client()
             
-            logger.info(f"Attempting to get user ID for {username}")
+            # Try multiple methods to get user ID
             
-            # Method 1: Try using client's direct method
+            # Method 1: Try standard API
             try:
-                user_info = self.client.user_info_by_username(username)
-                logger.info(f"Successfully found user ID {user_info.pk} for {username}")
+                logger.info(f"Using standard API to find ID for {clean_username}")
+                user_info = self.client.user_info_by_username(clean_username)
+                logger.info(f"Found user ID {user_info.pk} for {clean_username}")
                 return user_info.pk
             except Exception as e:
-                logger.warning(f"Standard method failed: {e}, trying web method")
-            
-            # Method 2: Try using web profile search
+                logger.warning(f"Standard method failed: {e}, trying alternatives")
+                
+            # Method 2: Try web API (often works for private accounts)
             try:
-                # This sometimes works better for private accounts
-                result = self.client.private.request(
+                logger.info(f"Using web API to find ID for {clean_username}")
+                data = self.client.private.request(
                     "web/search/topsearch/",
-                    params={"context": "blended", "query": username, "include_reel": "true"}
+                    params={"context": "user", "query": clean_username}
                 )
                 
-                if result and "users" in result:
-                    for user in result["users"]:
-                        if user["user"]["username"].lower() == username.lower():
+                if data and "users" in data:
+                    for user in data["users"]:
+                        if user["user"]["username"].lower() == clean_username:
                             user_id = user["user"]["pk"]
-                            logger.info(f"Found user ID {user_id} for {username} using web search")
+                            logger.info(f"Found user ID {user_id} for {clean_username} via web API")
                             return user_id
             except Exception as e:
-                logger.warning(f"Web search method failed: {e}")
+                logger.warning(f"Web API method failed: {e}")
             
-            # All methods failed
-            logger.error(f"Failed to find user ID for {username}")
+            # If we get here, we couldn't find the ID
+            logger.error(f"All methods to get user ID for {clean_username} failed")
             return None
             
         except Exception as e:
-            logger.error(f"Exception getting user ID for {username}: {e}")
+            logger.error(f"Error getting user ID for {username}: {e}")
             return None
     
     def is_private_account(self, username):
-        """Check if an account is private using simplified approach"""
+        """Check if an account is private using fallback approach"""
         try:
-            # Make sure we're logged in
-            self.initialize_client()
+            # Clean username
+            clean_username = username.replace("@", "").strip().lower()
             
-            # Get user ID using our simplified method
-            user_id = self.get_user_id_by_username(username)
+            # First try to get the user ID
+            user_id = self.get_user_id_by_username(clean_username)
+            
+            # If we can't find the user ID, we assume it's private for safety
             if not user_id:
-                logger.error(f"Could not find user ID for {username}, assuming private")
-                # If we can't find the user ID, assume it's private for safety
+                logger.warning(f"Could not find user ID for {clean_username}, assuming private")
                 return True
             
+            # Try to get privacy status 
             try:
-                # Try standard API to check privacy
+                logger.info(f"Checking privacy status for {clean_username}")
                 user_info = self.client.user_info(user_id)
-                logger.info(f"Account {username} privacy status: {user_info.is_private}")
-                return user_info.is_private
+                is_private = user_info.is_private
+                logger.info(f"Account {clean_username} privacy status: {is_private}")
+                return is_private
             except Exception as e:
-                logger.warning(f"Failed to check privacy status for {username}: {e}")
-                # Default to treating it as private for safety
+                logger.warning(f"Failed to determine privacy status for {clean_username}: {e}")
+                # Default to assuming private for safety
                 return True
                 
         except Exception as e:

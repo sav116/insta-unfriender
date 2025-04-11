@@ -78,20 +78,40 @@ class TrackingService:
             if not tracked_account:
                 close_session(session)
                 return False, "Tracked account not found"
+                
+            username = tracked_account.instagram_username
+            logger.info(f"Confirming follow acceptance for {username}")
             
-            # Update followers
-            result = self.update_followers(tracked_account_id)
-            if result:
-                tracked_account.follow_requested = False
+            # First, retry getting the user ID to ensure we have the correct one
+            user_id = self.instagram_service.get_user_id_by_username(username)
+            if user_id and user_id != tracked_account.instagram_user_id:
+                logger.info(f"Updating user ID for {username} from {tracked_account.instagram_user_id} to {user_id}")
+                tracked_account.instagram_user_id = user_id
                 session.commit()
-                return True, "Follow confirmed and initial followers saved"
-            else:
-                return False, "Failed to save followers. Please try again or check if the follow request was accepted."
+                
+            # Now try to update followers
+            try:
+                logger.info(f"Attempting to get followers for {username}")
+                result = self.update_followers(tracked_account_id)
+                
+                if result is not False:  # Check if not False (could be empty list which is valid)
+                    tracked_account.follow_requested = False
+                    tracked_account.last_check = datetime.datetime.utcnow()
+                    session.commit()
+                    logger.info(f"Successfully confirmed follow for {username}")
+                    return True, "Отслеживание успешно начато. Теперь вы будете получать уведомления об отписках."
+                else:
+                    logger.error(f"Failed to get followers for {username}")
+                    return False, "Не удалось получить список подписчиков. Убедитесь, что ручная подписка была принята."
+                
+            except Exception as e:
+                logger.error(f"Error getting followers: {e}")
+                return False, f"Ошибка при получении подписчиков: {str(e)}"
                 
         except Exception as e:
             logger.error(f"Error confirming follow: {e}")
             session.rollback()
-            return False, f"Error: {str(e)}"
+            return False, f"Ошибка: {str(e)}"
         finally:
             close_session(session)
     
