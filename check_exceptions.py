@@ -6,8 +6,10 @@ import inspect
 import sys
 
 try:
+    import instagrapi
     import instagrapi.exceptions as exceptions
     
+    print(f"Instagrapi version: {instagrapi.__version__}")
     print("Available exceptions in instagrapi.exceptions:")
     print("-" * 50)
     

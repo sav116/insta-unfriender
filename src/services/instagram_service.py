@@ -1,6 +1,6 @@
 import os
 from instagrapi import Client
-from instagrapi.exceptions import LoginRequired, PrivateAccount
+from instagrapi.exceptions import LoginRequired
 from dotenv import load_dotenv
 from loguru import logger
 import time
@@ -100,10 +100,12 @@ class InstagramService:
                     logger.warning("Login required, attempting to reinitialize client")
                     self.initialize_client()
                     retries += 1
-                except PrivateAccount:
-                    logger.error(f"Cannot view followers of private account {user_id}")
-                    return []
                 except Exception as e:
+                    # Check if it's a private account error
+                    if "Private account" in str(e):
+                        logger.error(f"Cannot view followers of private account {user_id}")
+                        return []
+                    
                     logger.error(f"Error fetching followers for {user_id}: {e}")
                     retries += 1
                     time.sleep(5)  # Wait before retry
