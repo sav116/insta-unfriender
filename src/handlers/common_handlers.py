@@ -31,6 +31,9 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handler for /help command"""
+    chat_id = str(update.effective_chat.id)
+    is_admin = user_service.is_admin(chat_id)
+    
     help_text = (
         "📋 *Instagram Unfriender Bot Help*\n\n"
         "*Commands:*\n"
@@ -44,12 +47,16 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "2. For public accounts, tracking starts immediately\n"
         "3. For private accounts, you'll need to accept a follow request from our technical account\n"
         "4. The bot checks for unfollowers periodically and notifies you\n\n"
-        
-        "*Admin Commands:*\n"
-        "/set_tech_account - Change technical Instagram account\n"
-        "/set_check_interval - Change check frequency\n"
-        "/stats - Show bot statistics"
     )
+    
+    if is_admin:
+        admin_help = (
+            "*Admin Commands:*\n"
+            "/set_tech_account - Change technical Instagram account\n"
+            "/set_check_interval - Change check frequency\n"
+            "/stats - Show bot statistics\n\n"
+        )
+        help_text += admin_help
     
     await update.message.reply_text(help_text, parse_mode="Markdown")
 

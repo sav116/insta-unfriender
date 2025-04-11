@@ -18,8 +18,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create logs directory
-RUN mkdir -p logs
+# Create logs and settings directories
+RUN mkdir -p logs settings
 
 # Run as non-root user for better security
 RUN useradd -m botuser

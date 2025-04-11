@@ -25,7 +25,7 @@ if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
 fi
 
 # Create necessary directories
-mkdir -p logs
+mkdir -p logs settings
 
 # Build Docker image
 echo "🔄 Building Docker image..."
@@ -46,6 +46,7 @@ docker run -d --name insta-unfriender \
     --env-file .env \
     -v "$(pwd)/logs:/app/logs" \
     -v "$(pwd)/bot_data.db:/app/bot_data.db" \
+    -v "$(pwd)/settings:/app/settings" \
     insta-unfriender:latest
 
 echo "✅ Bot is running in the background!"

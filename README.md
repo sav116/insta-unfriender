@@ -9,6 +9,7 @@ A Telegram bot that tracks unfollows from specified Instagram accounts and sends
 - Customizable check intervals
 - Admin commands for technical account management
 - Beautiful inline keyboard interface
+- Persistent Instagram session management to avoid verification challenges
 
 ## Setup
 
@@ -43,6 +44,14 @@ A Telegram bot that tracks unfollows from specified Instagram accounts and sends
 - `/set_tech_account` - Change technical Instagram account credentials
 - `/set_check_interval` - Change the frequency of unfollower checks
 - `/stats` - Show bot statistics
+
+## Persistent Sessions
+
+This bot uses persistent sessions for Instagram authentication to avoid verification challenges. Sessions are stored in the `settings` directory and are reused on subsequent runs. If you're experiencing login issues:
+
+1. Stop the bot
+2. Delete the session file in the `settings` directory
+3. Restart the bot
 
 ## Troubleshooting
 
