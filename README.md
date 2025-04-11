@@ -44,6 +44,23 @@ A Telegram bot that tracks unfollows from specified Instagram accounts and sends
 - `/set_check_interval` - Change the frequency of unfollower checks
 - `/stats` - Show bot statistics
 
+## Troubleshooting
+
+### Instagrapi Exceptions
+If you encounter issues with imports from the instagrapi library, check the available exceptions using the included utility script:
+
+```bash
+python check_exceptions.py
+```
+
+This will print all available exception classes in your installed instagrapi version. You may need to update the code to use the correct exception names.
+
+### System Dependencies
+Make sure all system dependencies for Pillow are installed if you're running outside of Docker:
+- libjpeg-dev
+- zlib1g-dev
+- libpng-dev
+
 ## License
 
 See the [LICENSE](LICENSE) file for details. 

@@ -1,5 +1,5 @@
 python-telegram-bot==20.6
-instagrapi==1.19.4
+instagrapi==1.30.0
 python-dotenv==1.0.0
 sqlalchemy==2.0.23
 alembic==1.12.1

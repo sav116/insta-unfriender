@@ -24,6 +24,9 @@ if [ -z "$TELEGRAM_BOT_TOKEN" ]; then
     exit 1
 fi
 
+# Create necessary directories
+mkdir -p logs
+
 # Build Docker image
 echo "🔄 Building Docker image..."
 docker build -t insta-unfriender:latest .
@@ -46,4 +49,5 @@ docker run -d --name insta-unfriender \
     insta-unfriender:latest
 
 echo "✅ Bot is running in the background!"
-echo "To view logs, run: docker logs -f insta-unfriender" 
+echo "To view logs, run: docker logs -f insta-unfriender"
+echo "To check available exceptions in instagrapi, run: docker exec insta-unfriender python check_exceptions.py" 
