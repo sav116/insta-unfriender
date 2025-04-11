@@ -55,19 +55,19 @@ async def handle_track_username(update: Update, context: ContextTypes.DEFAULT_TY
     
     # Edit the processing message with the result
     if success:
-        if "private" in message.lower() and "follow request" in message.lower():
-            # For private accounts with pending follow requests
+        if "private" in message.lower():
+            # For private accounts
             keyboard = [
-                [InlineKeyboardButton("✅ Подтвердить", callback_data=f"confirm_follow:{instagram_username}")],
+                [InlineKeyboardButton("✅ Я подписался, подтвердить", callback_data=f"confirm_follow:{instagram_username}")],
                 [InlineKeyboardButton("❌ Отменить", callback_data=f"stop_tracking_username:{instagram_username}")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             
             await processing_message.edit_text(
                 f"🔒 @{instagram_username} - это приватный аккаунт.\n\n"
-                f"1. Мы отправили запрос на подписку с аккаунта @biljon10\n"
-                f"2. Пожалуйста, ПРИМИТЕ запрос на подписку в Instagram\n"
-                f"3. После принятия, нажмите кнопку '✅ Подтвердить' ниже",
+                f"1. Откройте Instagram и войдите в аккаунт @biljon10\n"
+                f"2. Найдите аккаунт @{instagram_username} и подпишитесь на него\n"
+                f"3. После успешной подписки, нажмите кнопку ниже",
                 reply_markup=reply_markup
             )
         else:

@@ -56,19 +56,11 @@ class TrackingService:
                 self.update_followers(tracked_account.id)
                 return True, "Started tracking followers successfully"
             else:
-                # For private accounts, send a follow request
-                logger.info(f"Sending follow request to private account {instagram_username}")
-                success = self.instagram_service.send_follow_request(instagram_username)
-                
-                if success:
-                    tracked_account.follow_requested = True
-                    session.commit()
-                    logger.info(f"Follow request sent to {instagram_username}")
-                    return True, "Account is private. Follow request sent. Please accept it and confirm in the bot."
-                else:
-                    logger.error(f"Failed to send follow request to {instagram_username}")
-                    # Still track the account but warn about follow request
-                    return True, "Account is private. We couldn't send a follow request automatically. Please follow this account manually and confirm in the bot."
+                # For private accounts, we don't try to send follow request automatically
+                logger.info(f"Account {instagram_username} is private, requesting manual follow")
+                tracked_account.follow_requested = True
+                session.commit()
+                return True, "Account is private. Please follow this account manually from @biljon10 and confirm in the bot."
                 
         except Exception as e:
             logger.error(f"Error starting tracking: {e}")
