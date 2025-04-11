@@ -31,12 +31,12 @@ mkdir -p logs settings
 echo "🔄 Building Docker image..."
 docker build -t insta-unfriender:latest .
 
-# Check if the container is already running
-CONTAINER_ID=$(docker ps -q -f name=insta-unfriender)
+# Check if the container exists (running or not)
+CONTAINER_ID=$(docker ps -a -q -f name=insta-unfriender)
 if [ ! -z "$CONTAINER_ID" ]; then
-    echo "🔄 Stopping existing container..."
-    docker stop insta-unfriender
-    docker rm insta-unfriender
+    echo "🔄 Stopping and removing existing container..."
+    docker stop insta-unfriender 2>/dev/null || true
+    docker rm insta-unfriender 2>/dev/null || true
 fi
 
 # Run the container
